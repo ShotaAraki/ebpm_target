@@ -8,7 +8,7 @@
 ********************************************************************/
 
 cap log close
-log using "C:\Users\shota\Downloads\saez_260328",replace
+log using "$PROJ\log\saez_260328",replace
 
 clear all
 set more off
@@ -18,7 +18,8 @@ version 17
 *----------------------------
 * 0) Load tidy data
 *----------------------------
-use "kpi_tidy_for_bunching.dta", clear
+use "$DATA_WORK\kpi_tidy_for_bunching.dta", clear
+sum
 
 *----------------------------
 * 1) Direction adjustment + clean sample for bunching

@@ -1,0 +1,359 @@
+{smcl}
+{com}{sf}{ul off}{txt}{.-}
+      name:  {res}<unnamed>
+       {txt}log:  {res}C:\Users\shota\ebpm_target\log\cr_dta.smcl
+  {txt}log type:  {res}smcl
+ {txt}opened on:  {res}29 Mar 2026, 02:17:20
+{txt}
+{com}. ****************************************************
+. * 0) read
+. ****************************************************
+. clear all
+{res}{txt}
+{com}. set more off
+{txt}
+{com}. 
+. import delimited using "$DATA_RAW\3-1_RS_2025_効果発現経路_目標・実績.csv", varnames(1) encoding(utf8) clear
+{res}{text}(82 vars, 128,476 obs)
+
+{com}. 
+. * 重要：この列で「1.目標年度 / 2.目標値 / 3.実績値 / 4.達成率」を区別
+. * 例では「目標年度／目標値／実績値／達成率」という列に入っている想定
+. rename 目標年度目標値実績値達成率 rowtype
+{res}{txt}
+{com}. 
+. 
+. 
+. *----------------------------
+. * 1) Configure column names (edit here only if needed)
+. *----------------------------
+. local rowtype   "rowtype"
+{txt}
+{com}. local id_biz    "予算事業id"
+{txt}
+{com}. local num       "アクティビティアウトプットアウトカムの番号"
+{txt}
+{com}. local kind      "種別アクティビティアウトプットアウトカム"
+{txt}
+{com}. local period    "アウトカムの期間"
+{txt}
+{com}. local qtype     "成果目標の種類"
+{txt}
+{com}. local goaltext  "アクティビティ活動目標成果目標"
+{txt}
+{com}. local kpiname   "活動指標成果指標"
+{txt}
+{com}. local unit      "単位"
+{txt}
+{com}. local trend     "改善の上向き下向き"
+{txt}
+{com}. 
+. * year columns: v29(=2007) ... v82(=2060)
+. local stub      "v"
+{txt}
+{com}. local vstart    29
+{txt}
+{com}. local vend      82
+{txt}
+{com}. 
+. *----------------------------
+. * 2) Keep only needed rows and quantitative KPIs
+. *----------------------------
+. keep if inlist(`rowtype', "2.目標値", "3.実績値", "4.達成率")
+{txt}(39,781 observations deleted)
+
+{com}. 
+. * 定量的に限定（まずはバンチング検出に必要）
+. keep if `qtype' == "定量的"
+{txt}(39,771 observations deleted)
+
+{com}. 
+. * KPI名や単位が "-" や欠損のものは落とす（定性的混入対策）
+. drop if missing(`kpiname') | `kpiname'=="-"
+{txt}(51 observations deleted)
+
+{com}. drop if missing(`unit')   | `unit'=="-"
+{txt}(459 observations deleted)
+
+{com}. 
+. * テキストの揺れを少しでも減らす（全角スペース等の事故を軽減）
+. foreach x in `period' `goaltext' `kpiname' `unit' `trend' `kind' {c -(}
+{txt}  2{com}.     capture confirm string variable `x'
+{txt}  3{com}.     if !_rc {c -(}
+{txt}  4{com}.         replace `x' = ustrtrim(`x')
+{txt}  5{com}.     {c )-}
+{txt}  6{com}. {c )-}
+{txt}(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+
+{com}. 
+. *----------------------------
+. * 3) Build the minimal "series id"
+. *   - このデータでは、同一KPI名・単位でも短期/長期、目標文言で別系列があり得る
+. *   - ただしキーに長文をそのまま入れると重いので、goaltextはhash化して短いIDにする
+. *----------------------------
+. egen long goalhash = group(`goaltext'), label
+{res}{txt}
+{com}. local serieskey `id_biz' `num' `kind' `period' `kpiname' `unit' goalhash
+{txt}
+{com}. 
+. * series key（最小限で、実例169/170の短期/長期・87/100の併存を識別できる形）
+. *  - 予算事業id
+. *  - 番号（1,3,201等）
+. *  - 種別（アウトカム/アウトプット等）
+. *  - 期間（短期/長期等）  ←短期/長期の分離に必須
+. *  - KPI名
+. *  - 単位
+. *  - 目標文言hash          ←同一KPI名・同一単位で別目標を分離する保険
+. *
+. * ※ trend（上がると良い等）は空欄が多い場合があるので、まずキーに入れない（必要なら後で追加）
+. local serieskey `id_biz' `num' `kind' `period' `kpiname' `unit' goalhash
+{txt}
+{com}. 
+. *----------------------------
+. * 4) Drop exact duplicate rows within each rowtype & serieskey
+. *   - ここで残る重複は「同じ系列・同じrowtypeが複数行ある」=データ重複の可能性が高い
+. *   - 安全策として完全一致は落とす（wide列も含めて）
+. *----------------------------
+. duplicates drop `rowtype' `serieskey', force
+
+{p 0 4}{txt}Duplicates in terms of {res} rowtype 予算事業id アクティビティアウトプットアウトカムの番号 種別アクティビティアウトプットアウトカム アウトカムの期間 活動指標成果指標 単位 goalhash{p_end}
+
+{txt}(6 observations deleted)
+
+{com}. 
+. *----------------------------
+. * 5) Reshape to long over years v29-v82
+. *----------------------------
+. * v29-v82 が存在するかチェック
+. capture confirm variable `stub'`vstart'
+{txt}
+{com}. if _rc {c -(}
+.     di as error "Cannot find year columns like `stub'`vstart'. Check variable names with: describe"
+.     exit 198
+. {c )-}
+{txt}
+{com}. 
+. reshape long `stub', i(`rowtype' `serieskey') j(vindex)
+{txt}(j = 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82)
+
+Data{col 36}Wide{col 43}->{col 48}Long
+{hline 77}
+Number of observations     {res}      48,408   {txt}->   {res}2,614,032   
+{txt}Number of variables        {res}          83   {txt}->   {res}31          
+{txt}j variable (54 values)                    ->   {res}vindex
+{txt}xij variables:
+                        {res}v29 v30 ... v82   {txt}->   {res}v
+{txt}{hline 77}
+
+{com}. 
+. * vindex -> calendar year (v29=2007)
+. gen year = vindex + 1978
+{txt}
+{com}. drop vindex
+{txt}
+{com}. rename `stub' value
+{res}{txt}
+{com}. 
+. * 欠損は落とす
+. drop if missing(value)
+{txt}(2,493,303 observations deleted)
+
+{com}. 
+. *----------------------------
+. * 6) Convert rowtype to target/actual/ach columns
+. *----------------------------
+. gen rt = ""
+{txt}(120,729 missing values generated)
+
+{com}. replace rt = "target" if `rowtype'=="2.目標値"
+{txt}variable {bf}{res}rt{sf}{txt} was {bf}{res}str1{sf}{txt} now {bf}{res}str6{sf}
+{txt}(58,445 real changes made)
+
+{com}. replace rt = "actual" if `rowtype'=="3.実績値"
+{txt}(34,351 real changes made)
+
+{com}. replace rt = "ach"    if `rowtype'=="4.達成率"
+{txt}(27,933 real changes made)
+
+{com}. 
+. drop `rowtype'
+{txt}
+{com}. drop if rt==""
+{txt}(0 observations deleted)
+
+{com}. 
+. * strL 対策：KPI名をID化
+. egen long kpi_id = group(`kpiname'), label
+{res}{txt}
+{com}. label var kpi_id "group id for KPI name"
+{txt}
+{com}. 
+. * ついでに unit や period も怪しければID化してよい（任意）
+. * egen long unit_id = group(`unit'), label
+. * egen long period_id = group(`period'), label
+. 
+. * serieskey を作り直す（kpiname を外して kpi_id を入れる）
+. local serieskey `id_biz' `num' `kind' `period' `unit' goalhash kpi_id
+{txt}
+{com}. di "`serieskey'"
+{res}予算事業id アクティビティアウトプットアウトカムの番号 種別アクティビティアウトプットアウトカム アウトカムの期間 単位 goalhash kpi_id
+{txt}
+{com}. di as txt "i() will be: `serieskey' year"
+{res}{txt}i() will be: 予算事業id アクティビティアウトプットアウトカムの番号 種別アクティビティアウトプットアウトカム アウトカムの期間 単位 goalhash kpi_id year
+
+{com}. 
+. 
+. reshape wide value, i(`serieskey' year) j(rt) string
+{txt}(j = ach actual target)
+
+Data{col 36}Long{col 43}->{col 48}Wide
+{hline 77}
+Number of observations     {res}     120,729   {txt}->   {res}63,001      
+{txt}Number of variables        {res}          32   {txt}->   {res}33          
+{txt}j variable (3 values)                {res}rt   {txt}->   (dropped)
+xij variables:
+                                  {res}value   {txt}->   {res}valueach valueactual valuetarget
+{txt}{hline 77}
+
+{com}. rename valuetarget target
+{res}{txt}
+{com}. rename valueactual actual
+{res}{txt}
+{com}. rename valueach    ach
+{res}{txt}
+{com}. 
+. *----------------------------
+. * 7) Create achievement ratio r (preferred) and r2 (from actual/target)
+. *----------------------------
+. * 達成率(ach)が%表記（100=100%）の想定
+. gen r  = ach/100 if !missing(ach)
+{txt}(35,068 missing values generated)
+
+{com}. gen r2 = actual/target if target>0 & !missing(actual) & !missing(target)
+{txt}(34,426 missing values generated)
+
+{com}. 
+. * 可能なら r を優先、欠損は r2 で埋める（達成率列が空のケース対策）
+. gen r_use = r
+{txt}(35,068 missing values generated)
+
+{com}. replace r_use = r2 if missing(r_use) & !missing(r2)
+{txt}(689 real changes made)
+
+{com}. 
+. label var r_use "achievement ratio (1=100%)"
+{txt}
+{com}. 
+. *----------------------------
+. * 8) Final checks
+. *----------------------------
+. summ r r2 r_use, detail
+
+                              {txt}r
+{hline 61}
+      Percentiles      Smallest
+ 1%    {res} .1092437      -2416.667
+{txt} 5%    {res} .4692308      -1838.485
+{txt}10%    {res}      .65          -1008       {txt}Obs         {res}     27,933
+{txt}25%    {res} .9130435         -738.6       {txt}Sum of wgt. {res}     27,933
+
+{txt}50%    {res}        1                      {txt}Mean          {res} .9197139
+                        {txt}Largest       Std. dev.     {res} 19.96008
+{txt}75%    {res}      1.1       48.55666
+{txt}90%    {res} 1.428571        115.125       {txt}Variance      {res} 398.4049
+{txt}95%    {res} 1.954545       151.6949       {txt}Skewness      {res}-98.24512
+{txt}99%    {res}      4.9       294.6923       {txt}Kurtosis      {res} 10596.74
+
+                             {txt}r2
+{hline 61}
+      Percentiles      Smallest
+ 1%    {res}        0      -2.828151
+{txt} 5%    {res} .3051194           -1.5
+{txt}10%    {res} .5740741           -1.5       {txt}Obs         {res}     28,575
+{txt}25%    {res}   .89553            -.9       {txt}Sum of wgt. {res}     28,575
+
+{txt}50%    {res}        1                      {txt}Mean          {res} 1.121925
+                        {txt}Largest       Std. dev.     {res} 2.411706
+{txt}75%    {res}   1.0936       48.55667
+{txt}90%    {res} 1.405954        115.125       {txt}Variance      {res} 5.816326
+{txt}95%    {res}   1.9195       151.6949       {txt}Skewness      {res} 77.74758
+{txt}99%    {res}   4.6875       294.6923       {txt}Kurtosis      {res} 8423.578
+
+                 {txt}achievement ratio (1=100%)
+{hline 61}
+      Percentiles      Smallest
+ 1%    {res}        0      -2416.667
+{txt} 5%    {res}       .3      -1838.485
+{txt}10%    {res}     .573          -1008       {txt}Obs         {res}     28,622
+{txt}25%    {res}  .895447         -738.6       {txt}Sum of wgt. {res}     28,622
+
+{txt}50%    {res}        1                      {txt}Mean          {res} .8975742
+                        {txt}Largest       Std. dev.     {res} 19.71887
+{txt}75%    {res} 1.094118       48.55666
+{txt}90%    {res}     1.41        115.125       {txt}Variance      {res} 388.8339
+{txt}95%    {res} 1.923077       151.6949       {txt}Skewness      {res}-99.43841
+{txt}99%    {res}    4.775       294.6923       {txt}Kurtosis      {res} 10856.57
+{txt}
+{com}. corr r r2 if !missing(r) & !missing(r2)
+{txt}(obs=27,886)
+
+             {c |}        r       r2
+{hline 13}{c +}{hline 18}
+           r {c |}{res}   1.0000
+          {txt}r2 {c |}{res}   1.0000   1.0000
+
+{txt}
+{com}. 
+. * 100%近傍の粗いチェック
+. count if abs(r_use-1)<0.0001
+  {res}6,187
+{txt}
+{com}. di "exactly 1.0000 (within 1e-4): " r(N)
+{res}exactly 1.0000 (within 1e-4): 6187
+{txt}
+{com}. 
+. *----------------------------
+. * 9) Save tidy file for bunching plots
+. *----------------------------
+. save "$DATA_WORK\kpi_tidy_for_bunching.dta", replace
+{txt}{p 0 4 2}
+(file {bf}
+I:/ebpm_target_root/dtas\kpi_tidy_for_bunching.dta{rm}
+not found)
+{p_end}
+{p 0 4 2}
+file {bf}
+I:/ebpm_target_root/dtas\kpi_tidy_for_bunching.dta{rm}
+saved
+{p_end}
+
+{com}. export delimited using ""$DATA_WORK\kpi_tidy_for_bunching.csv", replace
+{err}invalid file specification
+{txt}{search r(198), local:r(198);}
+
+end of do-file
+{search r(198), local:r(198);}
+
+end of do-file
+
+{search r(198), local:r(198);}
+
+{com}. do "C:\Users\shota\ebpm_target\dofiles\saez_260328.do"
+{txt}
+{com}. /********************************************************************
+>  Saez-style bunching estimator for EBPM KPI achievement ratios
+>  Base spec A + robustness B and C
+> 
+>  A: bw=0.005, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+>  B: bw=0.002, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+>  C: bw=0.005, window=[0.97,1.03], fit range=[0.8,1.2], deg=3
+> ********************************************************************/
+. 
+. cap log close
+{smcl}
+{com}{sf}{ul off}

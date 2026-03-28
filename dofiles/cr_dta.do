@@ -1,12 +1,12 @@
 cap log close
-log using "C:\Users\shota\Downloads\cr_dta",replace
+log using "$PROJ\log\cr_dta",replace
 ****************************************************
 * 0) read
 ****************************************************
 clear all
 set more off
 
-import delimited using "C:\Users\shota\Downloads\3-1_RS_2025_効果発現経路_目標・実績\3-1_RS_2025_効果発現経路_目標・実績.csv", varnames(1) encoding(utf8) clear
+import delimited using "$DATA_RAW\3-1_RS_2025_効果発現経路_目標・実績.csv", varnames(1) encoding(utf8) clear
 
 * 重要：この列で「1.目標年度 / 2.目標値 / 3.実績値 / 4.達成率」を区別
 * 例では「目標年度／目標値／実績値／達成率」という列に入っている想定
@@ -156,5 +156,5 @@ di "exactly 1.0000 (within 1e-4): " r(N)
 *----------------------------
 * 9) Save tidy file for bunching plots
 *----------------------------
-save "kpi_tidy_for_bunching.dta", replace
-export delimited using "kpi_tidy_for_bunching.csv", replace
+save "$DATA_WORK\kpi_tidy_for_bunching.dta", replace
+
