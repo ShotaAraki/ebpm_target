@@ -1,3 +1,6 @@
+cap log close
+log using "$PROJ\log\fig_A1_rdir",replace
+
 version 17
 
 clear all
@@ -31,55 +34,13 @@ cap mkdir "figure"
 
 use "$DATA_WORK\kpi_tidy_for_bunching.dta", clear
 
-* 2) Preprocess (same logic as saez_[[260328.do](http://260328.do)])
 
-capture confirm string variable 単位
 
-if !_rc {
-
-replace 単位 = subinstr(単位, "％", "%", .) if !missing(単位)
-
-}
-
-gen double target_dir = target
-
-gen double actual_dir = actual
-
-replace target_dir = -target if 改善の上向き下向き=="下がると良い指標" & !missing(target)
-
-replace actual_dir = -actual if 改善の上向き下向き=="下がると良い指標" & !missing(actual)
-
-gen double r_dir = actual_dir/target_dir if !missing(actual_dir) & !missing(target_dir) & target_dir!=0
-
-label var r_dir "achievement ratio, direction-adjusted (1=100%)"
-
-gen byte ok = 1
-
-replace ok = 0 if missing(target_dir) | missing(actual_dir)
-
-replace ok = 0 if target_dir<=0
-
-replace ok = 0 if actual_dir<0
-
-replace r_dir = . if !ok
-
-gen byte ok_b = ok
-
-replace ok_b = 0 if missing(r_dir)
-
-replace ok_b = 0 if r_dir<=0 | r_dir>3
-
-count if ok_b
-
-local N_okb = r(N)
-
-di as txt "Obs in bunching sample (ok_b): `N_okb'"
-
-* 3) Plot settings
+* 2) Plot settings
 
 set scheme s2color
 
-* 4) Figure A1(a): full range 0–3, bin=0.01
+* 3) Figure A1(a): full range 0–3, bin=0.01
 
 histogram r_dir if ok_b, ///
 width(0.01) start(0) ///
@@ -93,7 +54,7 @@ graphregion(color(white))
 
 graph export "$PROJ\figure/fig_A1_all_bw001.png", replace width(2400)
 
-* 5) Figure A1(b): zoom 0.8–1.2, bin=0.005
+* 4) Figure A1(b): zoom 0.8–1.2, bin=0.005
 
 histogram r_dir if ok_b & inrange(r_dir, 0.8, 1.2), ///
 width(0.005) start(0.8) ///
@@ -107,7 +68,7 @@ graphregion(color(white))
 
 graph export "$PROJ\figure/fig_A1_zoom_bw0005.png", replace width(2400)
 
-* 6) Figure A1(c): zoom 0.8–1.2, bin=0.002
+* 5) Figure A1(c): zoom 0.8–1.2, bin=0.002
 
 histogram r_dir if ok_b & inrange(r_dir, 0.8, 1.2), ///
 width(0.002) start(0.8) ///

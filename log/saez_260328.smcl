@@ -845,4 +845,172 @@ format
 {com}. 
 {txt}end of do-file
 
+{com}. do "C:\Users\shota\AppData\Local\Temp\STD6434_00000e.tmp"
+{txt}
+{com}. /*----
+> 1) do-file（fig_B1_[heaping.do](http://heaping.do) など）
+> 
+> - --- Figure B1: heaping check (mod10/mod100), % vs non-% ---
+> --------------------*/
+. version 17.0
+{txt}
 {com}. 
+. clear all
+{res}{txt}
+{com}. 
+. set more off
+{txt}
+{com}. 
+. /*
+> - ========== USER SETTINGS ==========
+> 
+> 
+> - unit variable name (EDIT THIS)
+> - 候補例: unit, unit_norm, unit_clean, unit_std ...
+> */
+. local unitvar "unit"
+{txt}
+{com}. 
+. * graph scheme (optional)
+. * set scheme s2color
+. * ===================================
+. 
+. use  "$DATA_WORK/kpi_tidy_for_bunching.dta", clear
+{txt}
+{com}. exit
+
+{txt}end of do-file
+
+
+{com}. help tempfile
+
+. do "C:\Users\shota\AppData\Local\Temp\STD6434_00000f.tmp"
+{txt}
+{com}. /*----
+> 1) do-file（fig_B1_[heaping.do](http://heaping.do) など）
+> 
+> - --- Figure B1: heaping check (mod10/mod100), % vs non-% ---
+> --------------------*/
+. version 17.0
+{txt}
+{com}. 
+. clear all
+{res}{txt}
+{com}. 
+. set more off
+{txt}
+{com}. 
+. /*
+> - ========== USER SETTINGS ==========
+> 
+> 
+> - unit variable name (EDIT THIS)
+> - 候補例: unit, unit_norm, unit_clean, unit_std ...
+> */
+. local unitvar "単位"
+{txt}
+{com}. 
+. * graph scheme (optional)
+. * set scheme s2color
+. * ===================================
+. 
+. use  "$DATA_WORK/kpi_tidy_for_bunching.dta", clear
+{txt}
+{com}. 
+. * sample definition (match your bunching sample)
+. 
+. keep if ok_b == 1
+{err}ok_b not found
+{txt}{search r(111), local:r(111);}
+
+end of do-file
+
+{search r(111), local:r(111);}
+
+{com}. do "C:\Users\shota\ebpm_target\dofiles\00_master.do"
+{txt}
+{com}. * --- project root on PC (edit once) ---
+. global PROJ "C:\Users\shota\ebpm_target"
+{txt}
+{com}. do "$PROJ\dofiles\99_paths.do"
+{txt}
+{com}. /********************************************************************
+> 99_paths.do
+> - Detect external drive letter by searching for a marker folder.
+> - Define project paths as globals.
+> ********************************************************************/
+. 
+. * --- project root on PC (edit once) ---
+. global PROJ "C:\Users\shota\ebpm_target"
+{txt}
+{com}. 
+. * --- marker folder on external HDD (must exist) ---
+. local marker "/ebpm_target_root"
+{txt}
+{com}. 
+. * --- search drive letters ---
+. global EXTDRIVE ""
+{txt}
+{com}. foreach L in D E F G H I J K L M N O P Q R S T U V W X Y Z {c -(}
+{txt}  2{com}.     capture confirm file "`L':`marker'\_marker.txt"
+{txt}  3{com}.     if !_rc {c -(}
+{txt}  4{com}.         global EXTDRIVE "`L:'"
+{txt}  5{com}.         continue, break
+{txt}  6{com}.     {c )-}
+{txt}  7{com}.     * もし_marker.txtを作らない運用なら、フォルダ存在で判定：
+.     capture confirm dir "`L':`marker'"
+{txt}  8{com}.     if !_rc {c -(}
+{txt}  9{com}.         global EXTDRIVE "`L'"
+{txt} 10{com}.         continue, break
+{txt} 11{com}.     {c )-}
+{txt} 12{com}. {c )-}
+{txt}
+{com}. 
+. if "$EXTDRIVE"=="" {c -(}
+.     di as error "External drive not found. Expected marker folder: `marker'"
+.     di as error "Please connect HDD and ensure `marker' exists."
+.     exit 198
+. {c )-}
+{txt}
+{com}. 
+. * --- data folders on external HDD ---
+. global DATA_ROOT "$EXTDRIVE:/ebpm_target_root"
+{txt}
+{com}. global DATA_RAW  "$DATA_ROOT/rawdata"
+{txt}
+{com}. global DATA_WORK "$DATA_ROOT/dtas"
+{txt}
+{com}. 
+. * --- output folders inside repo (Git-managed) ---
+. global DOFILE "$PROJ/dofiles"
+{txt}
+{com}. global FIG    "$PROJ/figure"
+{txt}
+{com}. global TAB    "$PROJ/table"
+{txt}
+{com}. global LOG    "$PROJ/log"
+{txt}
+{com}. global TEX    "$PROJ/latex"
+{txt}
+{com}. 
+. * optional: show paths
+. di as txt "PROJ      = $PROJ"
+{res}{txt}PROJ      = C:\Users\shota\ebpm_target
+
+{com}. di as txt "DATA_ROOT = $DATA_ROOT"
+{res}{txt}DATA_ROOT = I:/ebpm_target_root
+
+{com}. di as txt "DATA_RAW  = $DATA_RAW"
+{res}{txt}DATA_RAW  = I:/ebpm_target_root/rawdata
+
+{com}. di as txt "DATA_WORK = $DATA_WORK"
+{res}{txt}DATA_WORK = I:/ebpm_target_root/dtas
+
+{com}. 
+{txt}end of do-file
+
+{com}. do "$DOFILE\cr_dta.do"
+{txt}
+{com}. cap log close
+{smcl}
+{com}{sf}{ul off}

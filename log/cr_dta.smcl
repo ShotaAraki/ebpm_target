@@ -3,7 +3,7 @@
       name:  {res}<unnamed>
        {txt}log:  {res}C:\Users\shota\ebpm_target\log\cr_dta.smcl
   {txt}log type:  {res}smcl
- {txt}opened on:  {res}29 Mar 2026, 02:17:20
+ {txt}opened on:  {res}31 Mar 2026, 15:50:45
 {txt}
 {com}. ****************************************************
 . * 0) read
@@ -249,6 +249,65 @@ xij variables:
 . label var r_use "achievement ratio (1=100%)"
 {txt}
 {com}. 
+. /*-----------------
+>  2) Preprocess (same logic as saez_[[260328.do](http://260328.do)])
+> *---------------*/
+. capture confirm string variable 単位
+{txt}
+{com}. if !_rc {c -(}
+.  replace 単位 = subinstr(単位, "％", "%", .) if !missing(単位)
+{txt}(8,939 real changes made)
+{com}. {c )-}
+{txt}
+{com}. gen double target_dir = target
+{txt}(4,556 missing values generated)
+
+{com}. gen double actual_dir = actual
+{txt}(28,650 missing values generated)
+
+{com}. replace target_dir = -target if 改善の上向き下向き=="下がると良い指標" & !missing(target)
+{txt}(2,886 real changes made)
+
+{com}. replace actual_dir = -actual if 改善の上向き下向き=="下がると良い指標" & !missing(actual)
+{txt}(1,881 real changes made)
+
+{com}. gen double r_dir = actual_dir/target_dir if !missing(actual_dir) & !missing(target_dir) & target_dir!=0
+{txt}(34,379 missing values generated)
+
+{com}. label var r_dir "achievement ratio, direction-adjusted (1=100%)"
+{txt}
+{com}. gen byte ok = 1
+{txt}
+{com}. replace ok = 0 if missing(target_dir) | missing(actual_dir)
+{txt}(33,206 real changes made)
+
+{com}. replace ok = 0 if target_dir<=0
+{txt}(2,583 real changes made)
+
+{com}. replace ok = 0 if actual_dir<0
+{txt}(17 real changes made)
+
+{com}. replace r_dir = . if !ok
+{txt}(1,427 real changes made, 1,427 to missing)
+
+{com}. gen byte ok_b = ok
+{txt}
+{com}. replace ok_b = 0 if missing(r_dir)
+{txt}(0 real changes made)
+
+{com}. replace ok_b = 0 if r_dir<=0 | r_dir>3
+{txt}(1,182 real changes made)
+
+{com}. count if ok_b
+  {res}26,013
+{txt}
+{com}. local N_okb = r(N)
+{txt}
+{com}. di as txt "Obs in bunching sample (ok_b): `N_okb'"
+{res}{txt}Obs in bunching sample (ok_b): 26013
+
+{com}. 
+. 
 . *----------------------------
 . * 8) Final checks
 . *----------------------------
@@ -322,38 +381,442 @@ xij variables:
 . *----------------------------
 . save "$DATA_WORK\kpi_tidy_for_bunching.dta", replace
 {txt}{p 0 4 2}
-(file {bf}
-I:/ebpm_target_root/dtas\kpi_tidy_for_bunching.dta{rm}
-not found)
-{p_end}
-{p 0 4 2}
 file {bf}
 I:/ebpm_target_root/dtas\kpi_tidy_for_bunching.dta{rm}
 saved
 {p_end}
 
-{com}. export delimited using ""$DATA_WORK\kpi_tidy_for_bunching.csv", replace
-{err}invalid file specification
-{txt}{search r(198), local:r(198);}
+{com}. 
+. 
+{txt}end of do-file
+
+{com}. do "$DOFILE\saez_260328.do"
+{txt}
+{com}. /********************************************************************
+> Saez-style bunching estimator for EBPM KPI achievement ratios
+> Base spec A + robustness B and C
+> 
+> A: bw=0.005, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+> B: bw=0.002, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+> C: bw=0.005, window=[0.97,1.03], fit range=[0.8,1.2], deg=3
+> ********************************************************************/
+. 
+. clear all
+{res}{txt}
+{com}. set more off
+{txt}
+{com}. version 17
+{txt}
+{com}. 
+. *----------------------------
+. * 1. Load tidy data
+. *----------------------------
+. use "kpi_tidy_for_bunching.dta", clear
+{err}{p 0 4 2}
+file {bf:{err}kpi_tidy_for_bunching.dta}
+not found
+{p_end}
+{txt}{search r(601), local:r(601);}
 
 end of do-file
-{search r(198), local:r(198);}
+{search r(601), local:r(601);}
 
 end of do-file
 
-{search r(198), local:r(198);}
+{search r(601), local:r(601);}
 
 {com}. do "C:\Users\shota\ebpm_target\dofiles\saez_260328.do"
 {txt}
 {com}. /********************************************************************
->  Saez-style bunching estimator for EBPM KPI achievement ratios
->  Base spec A + robustness B and C
+> Saez-style bunching estimator for EBPM KPI achievement ratios
+> Base spec A + robustness B and C
 > 
->  A: bw=0.005, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
->  B: bw=0.002, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
->  C: bw=0.005, window=[0.97,1.03], fit range=[0.8,1.2], deg=3
+> A: bw=0.005, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+> B: bw=0.002, window=[0.98,1.02], fit range=[0.8,1.2], deg=3
+> C: bw=0.005, window=[0.97,1.03], fit range=[0.8,1.2], deg=3
 > ********************************************************************/
 . 
-. cap log close
+. clear all
+{res}{txt}
+{com}. set more off
+{txt}
+{com}. version 17
+{txt}
+{com}. 
+. *----------------------------
+. * 1. Load tidy data
+. *----------------------------
+. use "$DATA_WORK/kpi_tidy_for_bunching.dta", clear
+{txt}
+{com}. 
+. *----------------------------
+. * 2. Check required variables (defined in cr_dta.do)
+. *----------------------------
+. capture confirm variable r_dir
+{txt}
+{com}. if _rc {c -(}
+.         di as error "Missing variable r_dir. Re-run cr_dta.do to generate kpi_tidy_for_bunching.dta with r_dir/ok_b."
+.         exit 198
+. {c )-}
+{txt}
+{com}. capture confirm variable ok_b
+{txt}
+{com}. if _rc {c -(}
+.         di as error "Missing variable ok_b. Re-run cr_dta.do to generate kpi_tidy_for_bunching.dta with ok_b."
+.         exit 198
+. {c )-}
+{txt}
+{com}. count if ok_b
+  {res}26,013
+{txt}
+{com}. di as txt "Obs in bunching sample (ok_b): " r(N)
+{res}{txt}Obs in bunching sample (ok_b): 26013
+
+{com}. 
+. *----------------------------
+. * 3. Saez-style excess mass program (deg=3 fixed)
+. *----------------------------
+. capture program drop saez_excess
+{txt}
+{com}. program define saez_excess, rclass
+{txt}  1{com}.         syntax, SPEC(string) BW(real) WL(real) WU(real) FITL(real) FITU(real)
+{txt}  2{com}.         preserve
+{txt}  3{com}.         keep if ok_b
+{txt}  4{com}.         keep r_dir
+{txt}  5{com}. 
+.         * bin centers
+.         gen double bin = floor(r_dir/`bw')*`bw'
+{txt}  6{com}.         gen double center = bin + `bw'/2
+{txt}  7{com}.         drop bin
+{txt}  8{com}. 
+.         * bin counts
+.         collapse (count) n=r_dir, by(center)
+{txt}  9{com}. 
+.         * window
+.         gen byte inwin = inrange(center, `wl', `wu')
+{txt} 10{com}. 
+.         * fit range restriction (after collapse)
+.         keep if inrange(center, `fitl', `fitu')
+{txt} 11{com}. 
+.         * polynomial terms (deg=3)
+.         gen double c1 = center
+{txt} 12{com}.         gen double c2 = center^2
+{txt} 13{com}.         gen double c3 = center^3
+{txt} 14{com}. 
+.         reg n c1 c2 c3 if !inwin
+{txt} 15{com}.         predict double n_hat, xb
+{txt} 16{com}. 
+.         count if inwin
+{txt} 17{com}.         local bins = r(N)
+{txt} 18{com}.         summ n if inwin
+{txt} 19{com}.         local actual = r(sum)
+{txt} 20{com}.         summ n_hat if inwin
+{txt} 21{com}.         local counter = r(sum)
+{txt} 22{com}.         gen double excess = n - n_hat if inwin
+{txt} 23{com}.         summ excess if inwin
+{txt} 24{com}.         local ex = r(sum)
+{txt} 25{com}. 
+.         return local spec "`spec'"
+{txt} 26{com}.         return scalar bw = `bw'
+{txt} 27{com}.         return scalar wl = `wl'
+{txt} 28{com}.         return scalar wu = `wu'
+{txt} 29{com}.         return scalar fitl = `fitl'
+{txt} 30{com}.         return scalar fitu = `fitu'
+{txt} 31{com}.         return scalar bins = `bins'
+{txt} 32{com}.         return scalar actual = `actual'
+{txt} 33{com}.         return scalar counter = `counter'
+{txt} 34{com}.         return scalar ex = `ex'
+{txt} 35{com}.         return scalar rel_ex = `ex'/`counter'
+{txt} 36{com}.         return scalar ex_share = `ex'/`actual'
+{txt} 37{com}.         restore
+{txt} 38{com}. end
+{txt}
+{com}. 
+. *----------------------------
+. * 4. Run A (base), B and C (robustness)
+. *----------------------------
+. tempname posth
+{txt}
+{com}. tempfile results
+{txt}
+{com}. postfile `posth' str10 spec double bw wl wu fitl fitu bins actual counter ex rel_ex ex_share using `results', replace
+{txt}{p 0 4 2}
+(file {bf}
+C:\Users\shota\AppData\Local\Temp\ST_6434_000001.tmp{rm}
+not found)
+{p_end}
+
+{com}. 
+. * common fit range
+. local fitl = 0.8
+{txt}
+{com}. local fitu = 1.2
+{txt}
+{com}. 
+. * -- A (base) ---
+. saez_excess, spec("A_base") bw(0.005) wl(0.98) wu(1.02) fitl(`fitl') fitu(`fitu')
+{txt}(36,988 observations deleted)
+{res}{txt}(476 observations deleted)
+
+      Source {c |}       SS           df       MS      Number of obs   ={res}        72
+{txt}{hline 13}{c +}{hline 34}   F(3, 68)        = {res}    24.85
+{txt}       Model {c |} {res} 124271.753         3  41423.9176   {txt}Prob > F        ={res}    0.0000
+{txt}    Residual {c |} {res} 113360.025        68  1667.05919   {txt}R-squared       ={res}    0.5230
+{txt}{hline 13}{c +}{hline 34}   Adj R-squared   ={res}    0.5019
+{txt}       Total {c |} {res} 237631.778        71  3346.92645   {txt}Root MSE        =   {res}  40.83
+
+{txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{col 1}           n{col 14}{c |} Coefficient{col 26}  Std. err.{col 38}      t{col 46}   P>|t|{col 54}     [95% con{col 67}f. interval]
+{hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{space 10}c1 {c |}{col 14}{res}{space 2} -4300.34{col 26}{space 2} 11303.21{col 37}{space 1}   -0.38{col 46}{space 3}0.705{col 54}{space 4}-26855.54{col 67}{space 3} 18254.86
+{txt}{space 10}c2 {c |}{col 14}{res}{space 2} 7867.838{col 26}{space 2} 11371.49{col 37}{space 1}    0.69{col 46}{space 3}0.491{col 54}{space 4}-14823.63{col 67}{space 3}  30559.3
+{txt}{space 10}c3 {c |}{col 14}{res}{space 2}-3793.572{col 26}{space 2} 3788.009{col 37}{space 1}   -1.00{col 46}{space 3}0.320{col 54}{space 4}-11352.43{col 67}{space 3} 3765.283
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 410.6132{col 26}{space 2} 3719.473{col 37}{space 1}    0.11{col 46}{space 3}0.912{col 54}{space 4}-7011.479{col 67}{space 3} 7832.706
+{txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{res}  8
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 11}n {c |}{res}          8    1023.375    2161.152        187       6371
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 7}n_hat {c |}{res}          8    184.0778    .7863537   182.5275   184.7493
+{txt}(72 missing values generated)
+
+    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 6}excess {c |}{res}          8    839.2972    2160.923   2.601473   6186.347
+{txt}
+{com}. return list
+
+{txt}scalars:
+           r(ex_share) =  {res}.8201267597173297
+             {txt}r(rel_ex) =  {res}4.559470649600259
+                 {txt}r(ex) =  {res}6714.377781805779
+            {txt}r(counter) =  {res}1472.622218194221
+             {txt}r(actual) =  {res}8187
+               {txt}r(bins) =  {res}8
+               {txt}r(fitu) =  {res}1.2
+               {txt}r(fitl) =  {res}.8
+                 {txt}r(wu) =  {res}1.02
+                 {txt}r(wl) =  {res}.98
+                 {txt}r(bw) =  {res}.005
+
+{txt}macros:
+               r(spec) : "{res}A_base{txt}"
+
+{com}. post `posth' ("A_base") (r(bw)) (r(wl)) (r(wu)) (r(fitl)) (r(fitu)) (r(bins)) ///
+>         (r(actual)) (r(counter)) (r(ex)) (r(rel_ex)) (r(ex_share))
+{txt}
+{com}. 
+. di as txt "---- A (base) ----"
+{res}{txt}---- A (base) ----
+
+{com}. di as txt "bins in window: " %9.0f r(bins)
+{res}{txt}bins in window:         8
+
+{com}. di as txt "Actual mass: " %12.4f r(actual)
+{res}{txt}Actual mass:    8187.0000
+
+{com}. di as txt "Counterfactual mass: " %12.4f r(counter)
+{res}{txt}Counterfactual mass:    1472.6222
+
+{com}. di as txt "Excess mass: " %12.4f r(ex)
+{res}{txt}Excess mass:    6714.3778
+
+{com}. di as txt "Excess/Counterfactual: " %9.4f r(rel_ex)
+{res}{txt}Excess/Counterfactual:    4.5595
+
+{com}. di as txt "Excess/Actual: " %9.4f r(ex_share)
+{res}{txt}Excess/Actual:    0.8201
+
+{com}. 
+. * -- B (robustness: finer bins) ---
+. saez_excess, spec("B_bw0p002") bw(0.002) wl(0.98) wu(1.02) fitl(`fitl') fitu(`fitu')
+{txt}(36,988 observations deleted)
+{res}{txt}(1,004 observations deleted)
+
+      Source {c |}       SS           df       MS      Number of obs   ={res}       180
+{txt}{hline 13}{c +}{hline 34}   F(3, 176)       = {res}    24.47
+{txt}       Model {c |} {res} 49565.5419         3  16521.8473   {txt}Prob > F        ={res}    0.0000
+{txt}    Residual {c |} {res} 118810.369       176  675.058916   {txt}R-squared       ={res}    0.2944
+{txt}{hline 13}{c +}{hline 34}   Adj R-squared   ={res}    0.2823
+{txt}       Total {c |} {res} 168375.911       179  940.647548   {txt}Root MSE        =   {res} 25.982
+
+{txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{col 1}           n{col 14}{c |} Coefficient{col 26}  Std. err.{col 38}      t{col 46}   P>|t|{col 54}     [95% con{col 67}f. interval]
+{hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{space 10}c1 {c |}{col 14}{res}{space 2}-1991.096{col 26}{space 2}  4545.07{col 37}{space 1}   -0.44{col 46}{space 3}0.662{col 54}{space 4}-10960.95{col 67}{space 3} 6978.755
+{txt}{space 10}c2 {c |}{col 14}{res}{space 2} 3414.624{col 26}{space 2} 4572.531{col 37}{space 1}    0.75{col 46}{space 3}0.456{col 54}{space 4}-5609.423{col 67}{space 3} 12438.67
+{txt}{space 10}c3 {c |}{col 14}{res}{space 2}-1605.008{col 26}{space 2} 1523.175{col 37}{space 1}   -1.05{col 46}{space 3}0.293{col 54}{space 4}-4611.046{col 67}{space 3} 1401.031
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 255.2276{col 26}{space 2} 1495.614{col 37}{space 1}    0.17{col 46}{space 3}0.865{col 54}{space 4}-2696.418{col 67}{space 3} 3206.873
+{txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{res}  20
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 11}n {c |}{res}         20      409.35    1362.219         73       6196
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 7}n_hat {c |}{res}         20    73.56142    .3184766   72.81369   73.84122
+{txt}(180 missing values generated)
+
+    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 6}excess {c |}{res}         20    335.7886    1362.171  -.7282518   6122.231
+{txt}
+{com}. return list
+
+{txt}scalars:
+           r(ex_share) =  {res}.8202970196186024
+             {txt}r(rel_ex) =  {res}4.564737979735352
+                 {txt}r(ex) =  {res}6715.771699617498
+            {txt}r(counter) =  {res}1471.228300382502
+             {txt}r(actual) =  {res}8187
+               {txt}r(bins) =  {res}20
+               {txt}r(fitu) =  {res}1.2
+               {txt}r(fitl) =  {res}.8
+                 {txt}r(wu) =  {res}1.02
+                 {txt}r(wl) =  {res}.98
+                 {txt}r(bw) =  {res}.002
+
+{txt}macros:
+               r(spec) : "{res}B_bw0p002{txt}"
+
+{com}. post `posth' ("B_bw0p002") (r(bw)) (r(wl)) (r(wu)) (r(fitl)) (r(fitu)) (r(bins)) ///
+>         (r(actual)) (r(counter)) (r(ex)) (r(rel_ex)) (r(ex_share))
+{txt}
+{com}. 
+. di as txt "---- B (robustness) ----"
+{res}{txt}---- B (robustness) ----
+
+{com}. di as txt "bins in window: " %9.0f r(bins)
+{res}{txt}bins in window:        20
+
+{com}. di as txt "Actual mass: " %12.4f r(actual)
+{res}{txt}Actual mass:    8187.0000
+
+{com}. di as txt "Counterfactual mass: " %12.4f r(counter)
+{res}{txt}Counterfactual mass:    1471.2283
+
+{com}. di as txt "Excess mass: " %12.4f r(ex)
+{res}{txt}Excess mass:    6715.7717
+
+{com}. di as txt "Excess/Counterfactual: " %9.4f r(rel_ex)
+{res}{txt}Excess/Counterfactual:    4.5647
+
+{com}. di as txt "Excess/Actual: " %9.4f r(ex_share)
+{res}{txt}Excess/Actual:    0.8203
+
+{com}. 
+. * -- C (robustness: wider window) ---
+. saez_excess, spec("C_win0p97_1p03") bw(0.005) wl(0.97) wu(1.03) fitl(`fitl') fitu(`fitu')
+{txt}(36,988 observations deleted)
+{res}{txt}(476 observations deleted)
+
+      Source {c |}       SS           df       MS      Number of obs   ={res}        68
+{txt}{hline 13}{c +}{hline 34}   F(3, 64)        = {res}    20.24
+{txt}       Model {c |} {res} 94174.9677         3  31391.6559   {txt}Prob > F        ={res}    0.0000
+{txt}    Residual {c |} {res} 99273.2676        64  1551.14481   {txt}R-squared       ={res}    0.4868
+{txt}{hline 13}{c +}{hline 34}   Adj R-squared   ={res}    0.4628
+{txt}       Total {c |} {res} 193448.235        67  2887.28709   {txt}Root MSE        =   {res} 39.385
+
+{txt}{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{col 1}           n{col 14}{c |} Coefficient{col 26}  Std. err.{col 38}      t{col 46}   P>|t|{col 54}     [95% con{col 67}f. interval]
+{hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{space 10}c1 {c |}{col 14}{res}{space 2}-5269.548{col 26}{space 2} 10970.72{col 37}{space 1}   -0.48{col 46}{space 3}0.633{col 54}{space 4}-27186.09{col 67}{space 3} 16646.99
+{txt}{space 10}c2 {c |}{col 14}{res}{space 2} 8512.967{col 26}{space 2}  11035.4{col 37}{space 1}    0.77{col 46}{space 3}0.443{col 54}{space 4}-13532.78{col 67}{space 3} 30558.72
+{txt}{space 10}c3 {c |}{col 14}{res}{space 2}-3899.575{col 26}{space 2} 3675.855{col 37}{space 1}   -1.06{col 46}{space 3}0.293{col 54}{space 4}-11242.94{col 67}{space 3}  3443.79
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2} 832.7179{col 26}{space 2} 3610.861{col 37}{space 1}    0.23{col 46}{space 3}0.818{col 54}{space 4}-6380.806{col 67}{space 3} 8046.242
+{txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{res}  12
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 11}n {c |}{res}         12      759.25    1767.676        187       6371
+
+{txt}    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 7}n_hat {c |}{res}         12     175.613    1.331994   172.6483   176.8137
+{txt}(68 missing values generated)
+
+    Variable {c |}        Obs        Mean    Std. dev.       Min        Max
+{hline 13}{c +}{hline 57}
+{space 6}excess {c |}{res}         12     583.637    1767.335   10.42538   6194.314
+{txt}
+{com}. return list
+
+{txt}scalars:
+           r(ex_share) =  {res}.7687020201843123
+             {txt}r(rel_ex) =  {res}3.323427298400362
+                 {txt}r(ex) =  {res}7003.64410589927
+            {txt}r(counter) =  {res}2107.35589410073
+             {txt}r(actual) =  {res}9111
+               {txt}r(bins) =  {res}12
+               {txt}r(fitu) =  {res}1.2
+               {txt}r(fitl) =  {res}.8
+                 {txt}r(wu) =  {res}1.03
+                 {txt}r(wl) =  {res}.97
+                 {txt}r(bw) =  {res}.005
+
+{txt}macros:
+               r(spec) : "{res}C_win0p97_1p03{txt}"
+
+{com}. post `posth' ("C_win0p97_1p03") (r(bw)) (r(wl)) (r(wu)) (r(fitl)) (r(fitu)) (r(bins)) ///
+>         (r(actual)) (r(counter)) (r(ex)) (r(rel_ex)) (r(ex_share))
+{txt}
+{com}. 
+. di as txt "---- C (robustness) ----"
+{res}{txt}---- C (robustness) ----
+
+{com}. di as txt "bins in window: " %9.0f r(bins)
+{res}{txt}bins in window:        12
+
+{com}. di as txt "Actual mass: " %12.4f r(actual)
+{res}{txt}Actual mass:    9111.0000
+
+{com}. di as txt "Counterfactual mass: " %12.4f r(counter)
+{res}{txt}Counterfactual mass:    2107.3559
+
+{com}. di as txt "Excess mass: " %12.4f r(ex)
+{res}{txt}Excess mass:    7003.6441
+
+{com}. di as txt "Excess/Counterfactual: " %9.4f r(rel_ex)
+{res}{txt}Excess/Counterfactual:    3.3234
+
+{com}. di as txt "Excess/Actual: " %9.4f r(ex_share)
+{res}{txt}Excess/Actual:    0.7687
+
+{com}. 
+. postclose `posth'
+{txt}
+{com}. 
+. *----------------------------
+. * 5. Save results
+. *----------------------------
+. use `results', clear
+{txt}
+{com}. save "saez_bunching_results_ABC.dta", replace
+{txt}{p 0 4 2}
+file {bf}
+saez_bunching_results_ABC.dta{rm}
+saved
+{p_end}
+
+{com}. export delimited using "saez_bunching_results_ABC.csv", replace
+{res}{txt}file {bf:saez_bunching_results_ABC.csv} saved
+
+{com}. 
+. di as txt "Saved: saez_bunching_results_ABC.dta / .csv"
+{res}{txt}Saved: saez_bunching_results_ABC.dta / .csv
+
+{com}. 
+{txt}end of do-file
+
+{com}. do "C:\Users\shota\ebpm_target\dofiles\fig_A1_rdir.do"
+{txt}
+{com}. cap log close
 {smcl}
 {com}{sf}{ul off}

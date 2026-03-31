@@ -143,6 +143,32 @@ replace r_use = r2 if missing(r_use) & !missing(r2)
 
 label var r_use "achievement ratio (1=100%)"
 
+/*-----------------
+ 2) Preprocess (same logic as saez_[[260328.do](http://260328.do)])
+*---------------*/
+capture confirm string variable 単位
+if !_rc {
+ replace 単位 = subinstr(単位, "％", "%", .) if !missing(単位)
+}
+gen double target_dir = target
+gen double actual_dir = actual
+replace target_dir = -target if 改善の上向き下向き=="下がると良い指標" & !missing(target)
+replace actual_dir = -actual if 改善の上向き下向き=="下がると良い指標" & !missing(actual)
+gen double r_dir = actual_dir/target_dir if !missing(actual_dir) & !missing(target_dir) & target_dir!=0
+label var r_dir "achievement ratio, direction-adjusted (1=100%)"
+gen byte ok = 1
+replace ok = 0 if missing(target_dir) | missing(actual_dir)
+replace ok = 0 if target_dir<=0
+replace ok = 0 if actual_dir<0
+replace r_dir = . if !ok
+gen byte ok_b = ok
+replace ok_b = 0 if missing(r_dir)
+replace ok_b = 0 if r_dir<=0 | r_dir>3
+count if ok_b
+local N_okb = r(N)
+di as txt "Obs in bunching sample (ok_b): `N_okb'"
+
+
 *----------------------------
 * 8) Final checks
 *----------------------------
